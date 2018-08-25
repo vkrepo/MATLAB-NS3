@@ -14,4 +14,4 @@ Following example scenarios are included in this repository:
    * Truck Platooning Example with V2X
    * Manhattan Grid Hazard Warning Example with V2X
 
-See the included documentation, for more details.
+See the included documentation in 'docs' folder, for more details.
