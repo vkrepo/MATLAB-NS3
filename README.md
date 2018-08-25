@@ -16,23 +16,10 @@ Following example scenarios are included in this repository:
 
 See the included documentation in 'doc' folder, for more details.
 
-
-Here is the folder hierarchy of this repository:
-├───doc
-├───mlCode
-│   ├───mlWiFiPhyChannel
-│   └───mlWrappers
-├───native
-│   ├───mexBindings
-│   └───mlPhy
-└───scenarios
-    ├───advWifiScenario
-    │   └───visualizer
-    ├───manhattanHazardWarning
-    │   ├───manhattanTopologyModel
-    │   ├───traces
-    │   └───visualizer
-    └───truckPlatooning
-        ├───highwayTopologyModel
-        ├───traces
-        └───visualizer
+About the folders in the repository:
+   * doc - Documentation about the co-simulation and included examples
+   * mlCode/mlWrappers - MATLAB wrappers over NS3
+   * mlCode/mlWiFiPhyChannel - Sample MALTAB code using MATLAB WLAN Toolbox Phy and Channel modeling
+   * native/mexBindings - Mex bindings over native C++ classes of NS3
+   * native/mlPhy - Additional C++ classes for NS3 to invoke MATLAB WLAN Toolbox Phy and Channel models
+   * scenarios - Constians example scenarios written in MATLAB that utilize the MATLAB-NS3 co-simulation
