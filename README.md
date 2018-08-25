@@ -14,4 +14,25 @@ Following example scenarios are included in this repository:
    * Truck Platooning Example with V2X
    * Manhattan Grid Hazard Warning Example with V2X
 
-See the included documentation in 'docs' folder, for more details.
+See the included documentation in 'doc' folder, for more details.
+
+
+Here is the folder hierarchy of this repository:
+├───doc
+├───mlCode
+│   ├───mlWiFiPhyChannel
+│   └───mlWrappers
+├───native
+│   ├───mexBindings
+│   └───mlPhy
+└───scenarios
+    ├───advWifiScenario
+    │   └───visualizer
+    ├───manhattanHazardWarning
+    │   ├───manhattanTopologyModel
+    │   ├───traces
+    │   └───visualizer
+    └───truckPlatooning
+        ├───highwayTopologyModel
+        ├───traces
+        └───visualizer
