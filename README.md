@@ -23,7 +23,7 @@ See the included documentation in 'doc' folder, for more details.
    * mlCode/mlWiFiPhyChannel - Sample MALTAB code using MATLAB WLAN Toolbox Phy and Channel modeling
    * native/mexBindings - Mex bindings over native C++ classes of NS3
    * native/mlPhy - Additional C++ classes for NS3 to invoke MATLAB WLAN Toolbox Phy and Channel models
-   * scenarios - Constians example scenarios written in MATLAB that utilize the MATLAB-NS3 co-simulation
+   * scenarios - Contains example scenarios written in MATLAB that utilize the MATLAB-NS3 co-simulation
 
 ## Setting up the co-simulation environment
 Follow these steps to setup this co-simulation:
@@ -36,7 +36,7 @@ Follow these steps to setup this co-simulation:
 
    **Note:** *It is strongly recommended that you add LD_LIBRARY_PATH export to the shell startup script so that it is set automatically at startup.*
 
-1. Add path to 'LD_LIBRARY_PATH' to startup script
+1. Add path to 'LD_LIBRARY_PATH' in the startup script
    * If you use bash shell, add this line at the end of ~/.bashrc file:
 
     `export LD_LIBRARY_PATH=<MATLAB-NS3 BASE FOLDER>/ns-allinone-3.26/ns-3.26/build:$LD_LIBRARY_PATH`
@@ -45,7 +45,7 @@ Follow these steps to setup this co-simulation:
 
     `setenv LD_LIBRARY_PATH<MATLAB-NS3 BASE FOLDER>/ns-allinone-3.26/ns-3.26/build:$LD_LIBRARY_PATH`
 
-   **Note:** *You have to launch new terminal (shell) or restart the PC to get to new environment with LD_LIBRARY_PATH set properly.*
+   **Note:** *You have to launch new terminal (shell) or restart the PC to get the environment with updated LD_LIBRARY_PATH.*
 
 1. Launch MATLAB from the new terminal. Go to the folder MATLAB-NS3.
 1.	Run ‘buildMex.m’ to build Mex-binaries in the MATLAB Command Window.
@@ -54,7 +54,7 @@ Follow these steps to setup this co-simulation:
 
 ## Running the example scenarios
 All examples are placed under ‘scenarios’ folder. Following steps are applicable to run any of the examples in this folder.
-1.	Go to any example folder, such as – MATLAB-NS3/scenarios/truckPlatooning/
+1.	Go to any example folder, such as: MATLAB-NS3/scenarios/truckPlatooning/
 2.	Run ‘scenario.m’ script of any example. It might take around 2-3 minutes to complete. During this time the terminal will remain busy.
 
     **Note:** *Running the simulation scenario will clear all the variables, close all the figures and unload all the functions in the current workspace.*
