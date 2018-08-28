@@ -24,6 +24,7 @@ See the included documentation in 'doc' folder, for more details.
    * native/mexBindings - Mex bindings over native C++ classes of NS3
    * native/mlPhy - Additional C++ classes for NS3 to invoke MATLAB WLAN Toolbox Phy and Channel models
    * scenarios - Contains example scenarios written in MATLAB that utilize the MATLAB-NS3 co-simulation
+   * videos - Recorded videos, expaining the demo scenarios
 
 ## Setting up the co-simulation environment
 Follow these steps to setup this co-simulation:
