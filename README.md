@@ -52,6 +52,7 @@ Follow these steps to setup this co-simulation:
 1.	Run ‘buildMex.m’ to build Mex-binaries in the MATLAB Command Window.
 
     `>>MATLAB-NS3/native/mexBindings/buildMex`
+   **Note:** *You may see warnings about GCC compiler version, thrown by MATLAB MEX. But it still works. It is checked on Debian 8 (GCC version 4.9.x) and Debian 9 (GCC version 6.3.x) *
 
 ## Running the example scenarios
 All examples are placed under ‘scenarios’ folder. Following steps are applicable to run any of the examples in this folder.
