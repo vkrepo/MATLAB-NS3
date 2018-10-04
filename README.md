@@ -3,7 +3,8 @@ Co-simulate MATLAB with NS-3 network simulator, combining the powers of MATLAB a
 Optionally use the MATLAB PHY and Channel models, instead of the statistical models of NS-3.
 
 This co-simulation code currently:
-   * Supports modeling WLAN network and 802.11p based V2X scenarios. 
+   * Supports modeling WLAN network and 802.11p based V2X scenarios.
+      *	See the documentation for the list of supported classes.
    * Works with NS-3.26 version.
    * Works on Linux. Can get it working on Windows, if the NS3 library port is available to Windows.
    * For high-fidelity WLAN PHY and Channel modeling, MATLAB WLAN Toolbox is recommended.
@@ -52,7 +53,8 @@ Follow these steps to setup this co-simulation:
 1.	Run ‘buildMex.m’ to build Mex-binaries in the MATLAB Command Window.
 
     `>>MATLAB-NS3/native/mexBindings/buildMex`
-   **Note:** *You may see warnings about GCC compiler version, thrown by MATLAB MEX. But it still works. It is checked on Debian 8 (GCC version 4.9.x) and Debian 9 (GCC version 6.3.x) *
+
+   **Note:** *You may ignore warnings about GCC compiler version, thrown by MATLAB MEX. It works on Debian 8 (GCC version 4.9.x) and Debian 9 (GCC version 6.3.x). Should work with other GCC versions also.*
 
 ## Running the example scenarios
 All examples are placed under ‘scenarios’ folder. Following steps are applicable to run any of the examples in this folder.
