@@ -21,7 +21,7 @@ void cleanup(void)
 }
 
 #define MAX_RECV_BUFFER_SIZE 1500
-bool ReceivePkt (Ptr<ns3::NetDevice> dev, Ptr<const ns3::Packet> pkt, uint16_t mode, const Address &sender)
+bool ReceivePkt (Ptr<NetDevice> dev, Ptr<const Packet> pkt, uint16_t mode, const Address &sender)
 {
     unsigned char buf[MAX_RECV_BUFFER_SIZE]= {0};
     
@@ -32,7 +32,7 @@ bool ReceivePkt (Ptr<ns3::NetDevice> dev, Ptr<const ns3::Packet> pkt, uint16_t m
         mxArray *mwPkt = mxCreateNumericMatrix(pkt->GetSize(), 1, mxUINT8_CLASS, mxREAL);
         
         mxArray *node_id = mxCreateDoubleMatrix(1, 1, mxREAL);
-        *(mxGetPr(node_id)) = ns3::Simulator::GetContext();
+        *(mxGetPr(node_id)) = Simulator::GetContext();
         
         mxArray *protocol = mxCreateDoubleMatrix(1, 1, mxREAL);
         *(mxGetPr(protocol)) = mode;

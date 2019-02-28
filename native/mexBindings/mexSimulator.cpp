@@ -61,7 +61,7 @@ double timeval_substract(struct timespec *x, struct timespec *y)
 }
 
 /**
- * this is a function which calls matlab function on scheduled event times
+ * this is a function which calls MATLAB function on scheduled event times
  * inputs: buf, data
  */
 void scheduleMatFunc(std::string buf, void* data)
