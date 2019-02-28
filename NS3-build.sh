@@ -9,7 +9,7 @@
 #
 
 current_location=$PWD
-cd $current_location/ns-allinone-3.26/ns-3.26/
+cd $current_location/ns-allinone-3.29/ns-3.29/
 chmod +x waf
 
 # For new GCC version, disable a compiler flag
