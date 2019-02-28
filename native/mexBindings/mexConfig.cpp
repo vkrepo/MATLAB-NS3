@@ -60,7 +60,7 @@ void PhyTxTrace (Ptr<const Packet> packet, WifiMode mode, WifiPreamble preamble,
     struct timespec x, y;
     
     mxArray *node_id = mxCreateDoubleMatrix(1, 1, mxREAL);
-    *(mxGetPr(node_id)) = ns3::Simulator::GetContext() + 1;
+    *(mxGetPr(node_id)) = Simulator::GetContext() + 1;
     
     
     mxArray* param1 = mxCreateString("PhyTx");
@@ -77,7 +77,7 @@ void PacketRxOk (Ptr< const Packet > packet, double snr, WifiMode mode, WifiPrea
     count++;
     struct timespec x, y;
     mxArray *node_id = mxCreateDoubleMatrix(1, 1, mxREAL);
-    *(mxGetPr(node_id)) = ns3::Simulator::GetContext() + 1;
+    *(mxGetPr(node_id)) = Simulator::GetContext() + 1;
     
     mxArray* param1 = mxCreateString("PhyRxOk");
     mxArray *value1 = mxCreateDoubleMatrix(1, 1, mxREAL);
@@ -94,7 +94,7 @@ void PacketRxError (Ptr<const Packet> packet, double snr)
     struct timespec x, y;
     clock_gettime(CLOCK_REALTIME, &x);
     mxArray *node_id = mxCreateDoubleMatrix(1, 1, mxREAL);
-    *(mxGetPr(node_id)) = ns3::Simulator::GetContext() + 1;
+    *(mxGetPr(node_id)) = Simulator::GetContext() + 1;
     mxArray* param1 = mxCreateString("RxError");
     mxArray *value1 = mxCreateDoubleMatrix(1, 1, mxREAL);
     *(mxGetPr(value1)) = 0;
@@ -111,7 +111,7 @@ void MacTx (Ptr<const Packet> packet)
     struct timespec x, y;
     clock_gettime(CLOCK_REALTIME, &x);
     mxArray *node_id = mxCreateDoubleMatrix(1, 1, mxREAL);
-    *(mxGetPr(node_id)) = ns3::Simulator::GetContext() + 1;
+    *(mxGetPr(node_id)) = Simulator::GetContext() + 1;
     
     mxArray* param1 = mxCreateString("MacTx");
     mxArray *value1 = mxCreateDoubleMatrix(1, 1, mxREAL);
@@ -130,7 +130,7 @@ void MacRx (Ptr<const Packet> packet)
     struct timespec x, y;
     clock_gettime(CLOCK_REALTIME, &x);
     mxArray *node_id = mxCreateDoubleMatrix(1, 1, mxREAL);
-    *(mxGetPr(node_id)) = ns3::Simulator::GetContext() + 1;
+    *(mxGetPr(node_id)) = Simulator::GetContext() + 1;
     
     mxArray* param1 = mxCreateString("MacRx");
     mxArray *value1 = mxCreateDoubleMatrix(1, 1, mxREAL);
@@ -150,7 +150,7 @@ void MacRxDrop (Ptr<const Packet> p)
     struct timespec x, y;
     clock_gettime(CLOCK_REALTIME, &x);
     mxArray *node_id = mxCreateDoubleMatrix(1, 1, mxREAL);
-    *(mxGetPr(node_id)) = ns3::Simulator::GetContext() + 1;
+    *(mxGetPr(node_id)) = Simulator::GetContext() + 1;
     
     mxArray* param1 = mxCreateString("MacRxDrop");
     mxArray *value1 = mxCreateDoubleMatrix(1, 1, mxREAL);
