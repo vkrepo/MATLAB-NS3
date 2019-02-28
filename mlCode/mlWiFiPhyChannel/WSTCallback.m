@@ -1,7 +1,5 @@
-function resultPacket = WSTCallback(txPacket, senderPosition, ...
-    receiverPosition, powerLevel, txGain, rxGain, isNotLegacy, rateMcs, ...
-    channelBW, senderVelocity, receiverVelocity, senderId, receiverId, ...
-    timeStamp)
+function resultPacket = WSTCallback(txPacket, txParameters, timeStamp)
+
 % WSTCallback MATLAB callback function for modeling PHY and Channel, on the
 % MAC packets given by NS-3. The modeling is done using WLAN Toolbox.
 % This function is called while the simulation runs in NS3, on each packet,
@@ -15,37 +13,36 @@ function resultPacket = WSTCallback(txPacket, senderPosition, ...
 % The reference implementation is applicable for 802.11a standard.
 % Note: Currently this callback does not model interference.
 %
-% RESULTPACKET = WSTCallback(TXPACKET, SENDERPOSITION, RECEIVERPOSITION, ...
-%   POWERLEVEL, TXGAIN, RXGAIN, ISNOTLEGACY,RATEMCS, ...
-%   CHANNELBW, SENDERVELOCITY, RECEIVERVELOCITY, SENDERID, RECEIVERID,
-%   TIMESTAMP) perfoms the MATLAB PHY and Channel modelling on the given
+% RESULTPACKET = WSTCallback(TXPACKET, TXPARAMETERS, TIMESTAMP)
+%   perfoms the MATLAB PHY and Channel modelling on the given
 %   TXPACKET and returns RESULTPACKET which is a vector containing modified
 %   packet and rxpowerdBm (received signal strength for receiver in dBm
 %   based on distance, channel and other paramters).
 %
 %   input parameters list:
 %   TXPACKET           - Vector of transmitted packet octects.
-%   SENDERPOSITION     - Position (x,y,z) vector of the sender as double
-%   values.
-%   RECEIVERPOSITION   - Position (x,y,z) vector of the receiver as double
-%   values.
-%   POWERLEVEL         - Transmit power level in dBm as a double value.
-%   TXGAIN             - Transmitter gain in Db as a double value.
-%   RXGAIN             - Receiver gain in Db as a double value.
-%   ISNOTLEGACY        - Flag indicates whether the packet is transmitted
-%   with legacy or non-HT PHY (0=legacy, 1=non-HT).
-%   RATEMCS            - Rate/Mcs as integer. If ISNOTLEGACY (HT/VHT) is
-%   non-zero, contains MCS. Otherwise, contains PHY data rate as a
-%   multiple of 500Kbps.
-%   CHANNELBW          - Bandwidth of channel in MHz as integer.
-%   SENDERVELOCITY     - Vector (x,y,z) of sender velocity in m/sec as
-%   double values.
-%   RECEIVERVELOCITY   - Vector (x,y,z) of the receiver velocity in m/sec
-%   as double values.
-%   SENDERID           - Unique node id of sender as given by NS-3 as
-%   integer
-%   RECEIVERID         - Unique node id of the receiver as given by NS-3
-%   as integer
+%   TXPARAMETERS     - Structure with fields: 
+%      SENDERPOSITION     - Position (x,y,z) vector of the sender as double
+%      values.
+%      RECEIVERPOSITION   - Position (x,y,z) vector of the receiver as double
+%      values.
+%      POWERLEVEL         - Transmit power level in dBm as a double value.
+%      TXGAIN             - Transmitter gain in Db as a double value.
+%      RXGAIN             - Receiver gain in Db as a double value.
+%      SENDERVELOCITY     - Vector (x,y,z) of sender velocity in m/sec as
+%      double values.
+%      RECEIVERVELOCITY   - Vector (x,y,z) of the receiver velocity in m/sec
+%      as double values.
+%      SENDERID           - Unique node id of sender as given by NS-3 as
+%      integer
+%      RECEIVERID         - Unique node id of the receiver as given by NS-3
+%      as integer
+%      RATEMCS            - Rate/Mcs as integer. If ISNOTLEGACY (HT/VHT) is
+%      non-zero, contains MCS. Otherwise, contains PHY data rate as a
+%      multiple of 500Kbps.
+%      CHANNELBW          - Bandwidth of channel in MHz as integer.
+%      ISNOTLEGACY        - Flag indicates whether the packet is transmitted
+%      with legacy or non-HT PHY (0=legacy, 1=non-HT).
 %   TIMESTAMP          - Simulation time (of NS-3) in microseconds as
 %   64-bit integer.
 
@@ -56,6 +53,21 @@ function resultPacket = WSTCallback(txPacket, senderPosition, ...
 % modify, copy, or redistribute it subject to the terms and conditions
 % of the GNU General Public License version 2.
 %
+
+% Fetching transmission parameter values to local variables
+senderPosition = txParameters.senderPosition;
+receiverPosition = txParameters.receiverPosition;
+powerLevel = txParameters.powerLevel;
+txGain = txParameters.txGain;
+rxGain = txParameters.rxGain;
+senderVelocity = txParameters.senderVelocity;
+receiverVelocity = txParameters.receiverVelocity;
+senderId = txParameters.senderId;
+receiverId = txParameters.receiverId;
+rateMcs = txParameters.rateMcs;
+channelBW = txParameters.channelBW;
+isNotLegacy = txParameters.isNotLegacy;
+
 
 % If isNotLegacy is non-zero, it is HT / VHT. The rateMcs contains MCS.
 % If zero, the mode is non-HT and the rateMcs is a multiple of 500Kbps.
