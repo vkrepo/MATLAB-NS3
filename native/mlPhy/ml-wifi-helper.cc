@@ -21,18 +21,16 @@
  *          Sébastien Deronne <sebastien.deronne@gmail.com>
  */
 
-#include "ns3/trace-helper.h"
-#include "ns3/error-rate-model.h"
+#include "ns3/log.h"
+#include "ns3/names.h"
 #include "ns3/propagation-loss-model.h"
 #include "ns3/propagation-delay-model.h"
-#include "ml-wifi-channel.h"
+#include "ns3/error-rate-model.h"
 #include "ml-wifi-phy.h"
 #include "ml-wifi-helper.h"
-#include "ns3/wifi-net-device.h"
-#include "ns3/names.h"
-#include "ns3/log.h"
 #include "ns3/core-module.h"
 #include "ns3/wifi-module.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("MatlabWifiHelper");
@@ -98,10 +96,10 @@ void MatlabWifiChannelHelper::SetPropagationDelay (std::string type,
 Ptr<MatlabWifiChannel> MatlabWifiChannelHelper::Create (void) const
 {
 	Ptr<MatlabWifiChannel> channel = CreateObject<MatlabWifiChannel> ();
-	Ptr<ns3::PropagationLossModel> prev = 0;
+	Ptr<PropagationLossModel> prev = 0;
 	for (std::vector<ObjectFactory>::const_iterator i = m_propagationLoss.begin (); i != m_propagationLoss.end (); ++i)
 	{
-		Ptr<ns3::PropagationLossModel> cur = (*i).Create<ns3::PropagationLossModel> ();
+		Ptr<PropagationLossModel> cur = (*i).Create<PropagationLossModel> ();
 		if (prev != 0)
 		{
 			prev->SetNext (cur);
@@ -112,7 +110,7 @@ Ptr<MatlabWifiChannel> MatlabWifiChannelHelper::Create (void) const
 		}
 		prev = cur;
 	}
-	Ptr<ns3::PropagationDelayModel> delay = m_propagationDelay.Create<ns3::PropagationDelayModel> ();
+	Ptr<PropagationDelayModel> delay = m_propagationDelay.Create<PropagationDelayModel> ();
 	channel->SetPropagationDelayModel (delay);
 	channel->SetMatlabWSTCallback(matlabWSTCallback);
 	return channel;
@@ -151,10 +149,10 @@ void MatlabWifiPhyHelper::SetChannel (std::string channelName)
 	m_channel = channel;
 }
 
-Ptr<ns3::WifiPhy> MatlabWifiPhyHelper::Create (Ptr<ns3::Node> node, Ptr<ns3::NetDevice> device) const
+Ptr<WifiPhy> MatlabWifiPhyHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
 {
 	Ptr<MatlabWifiPhy> phy = m_phy.Create<MatlabWifiPhy> ();
-	Ptr<ns3::ErrorRateModel> error = m_errorRateModel.Create<ErrorRateModel> ();
+	Ptr<ErrorRateModel> error = m_errorRateModel.Create<ErrorRateModel> ();
 	phy->SetErrorRateModel (error);
 	phy->SetChannel (m_channel);
 	phy->SetDevice (device);

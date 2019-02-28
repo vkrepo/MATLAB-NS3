@@ -17,20 +17,19 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Authors: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
- *          Sébastien Deronne <sebastien.deronne@gmail.com>
+ * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
 
 #ifndef MATLAB_WIFI_HELPER_H
 #define MATLAB_WIFI_HELPER_H
 
 #include "ns3/wifi-helper.h"
-#include "ns3/trace-helper.h"
 #include "ml-wifi-channel.h"
 #include "ns3/core-module.h"
 #include "ns3/wifi-module.h"
 
 using namespace ns3;
+
 /**
  * \brief manage and create wifi channel objects for the MATLAB model.
  *
@@ -51,6 +50,7 @@ class MatlabWifiChannelHelper
 		 * a channel model with a propagation delay equal to a constant, the speed of light,
 		 * and a propagation loss based on a log distance model with a reference loss of 46.6777 dB
 		 * at reference distance of 1m.
+		 * \returns MatlabWifiChannelHelper
 		 */
 		static MatlabWifiChannelHelper Default (void);
 
@@ -143,13 +143,13 @@ class MatlabWifiChannelHelper
 		 */
 		int64_t AssignStreams (Ptr<MatlabWifiChannel> c, int64_t stream);
 
-		MATLAB_WST_CALLBACK matlabWSTCallback; 
+		MATLAB_WST_CALLBACK matlabWSTCallback;
 		void RegisterWSTCallback(MATLAB_WST_CALLBACK ptr);
 
 
 	private:
-		std::vector<ObjectFactory> m_propagationLoss;
-		ObjectFactory m_propagationDelay;
+		std::vector<ObjectFactory> m_propagationLoss; ///< vector of propagation loss models
+		ObjectFactory m_propagationDelay; ///< propagation delay model
 };
 
 
@@ -171,6 +171,7 @@ class MatlabWifiPhyHelper : public WifiPhyHelper
 
 		/**
 		 * Create a phy helper in a default working state.
+		 * \returns a default MatlabWifiPhyHelper
 		 */
 		static MatlabWifiPhyHelper Default (void);
 
@@ -195,9 +196,9 @@ class MatlabWifiPhyHelper : public WifiPhyHelper
 		 *
 		 * This method implements the pure virtual method defined in \ref ns3::WifiPhyHelper.
 		 */
-		virtual Ptr<ns3::WifiPhy> Create (Ptr<ns3::Node> node, Ptr<ns3::NetDevice> device) const;
+		virtual Ptr<WifiPhy> Create (Ptr<Node> node, Ptr<NetDevice> device) const;
 
-		Ptr<MatlabWifiChannel> m_channel;
+		Ptr<MatlabWifiChannel> m_channel; ///< MATLAB wifi channel
 };
 
 #endif /* MATLAB_WIFI_HELPER_H */
