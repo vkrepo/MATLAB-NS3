@@ -45,6 +45,11 @@ double* WSTCallback(uint8_t *data, int size, NodeProperties *senderDetails, Node
     double *dynamicData1, *dynamicData2, *dynamicData3, *dynamicData4, *dynamicData5, *dynamicData6, *dynamicData7, *dynamicData8;
     uint32_t *dynamicData9, *dynamicData10, *dynamicData11, *dynamicData12, *dynamicData13;
     int64_t *dynamicData14;
+    const char *field_names[] = {"senderPosition", "receiverPosition", "powerLevel", 
+	    "txGain", "rxGain", "senderVelocity", "receiverVelocity", "senderId", 
+	    "receiverId", "rateMcs", "channelBW", "isNotLegacy"};
+    int64_t nfields = 12;	//No. of elements in field_names array
+
     for(int i=0; i<3; i++)
     {
         sendPos[i] = senderDetails->location[i];
@@ -81,6 +86,9 @@ double* WSTCallback(uint8_t *data, int size, NodeProperties *senderDetails, Node
     mxArray* channelBW = mxCreateNumericMatrix(1, 1, mxUINT32_CLASS, mxREAL);
     mxArray* isNotLegacy = mxCreateNumericMatrix(1, 1, mxUINT32_CLASS, mxREAL);
     mxArray* timeStamp = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
+
+    mxArray* txParameters = mxCreateStructMatrix(1, 1, nfields, field_names);
+
     for(int i=0; i<size; i++)
     {
         dynamicData1[i]=data[i];
@@ -119,10 +127,23 @@ double* WSTCallback(uint8_t *data, int size, NodeProperties *senderDetails, Node
     mxSetData(channelBW, dynamicData12);
     mxSetData(isNotLegacy, dynamicData13);
     mxSetData(timeStamp, dynamicData14);
+
+    mxSetFieldByNumber(txParameters, 0, 0, senderPosition);
+    mxSetFieldByNumber(txParameters, 0, 1, receiverPosition);
+    mxSetFieldByNumber(txParameters, 0, 2, powerLevel);
+    mxSetFieldByNumber(txParameters, 0, 3, txGain);
+    mxSetFieldByNumber(txParameters, 0, 4, rxGain);
+    mxSetFieldByNumber(txParameters, 0, 5, senderVelocity);
+    mxSetFieldByNumber(txParameters, 0, 6, receiverVelocity);
+    mxSetFieldByNumber(txParameters, 0, 7, senderId);
+    mxSetFieldByNumber(txParameters, 0, 8, receiverId);
+    mxSetFieldByNumber(txParameters, 0, 9, rateMcs);
+    mxSetFieldByNumber(txParameters, 0, 10, channelBW);
+    mxSetFieldByNumber(txParameters, 0, 11, isNotLegacy);
     
     const char* matlabFunc = callback.c_str();
-    mxArray* inputArgs[] = {txPacket, senderPosition, receiverPosition, powerLevel, txGain, rxGain, isNotLegacy, rateMcs, channelBW, senderVelocity, receiverVelocity, senderId, receiverId, timeStamp};
-    mexCallMATLAB(1, outArgs, 14, inputArgs, matlabFunc);
+    mxArray* inputArgs[] = {txPacket, txParameters, timeStamp};
+    mexCallMATLAB(1, outArgs, 3, inputArgs, matlabFunc);
     double *ptr = mxGetPr(outArgs[0]);
     return ptr;
 }
