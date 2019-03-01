@@ -1,4 +1,6 @@
 # MATLAB-NS3
+*** **NOTE: Migration to NS3.29 is in progres and is expected to complete in a few days. For co-simulation with NS3.26, see the corresponding branch.**
+
 Co-simulate MATLAB with NS-3 network simulator, combining the powers of MATLAB and NS-3. Describe the scenario in MATLAB, run simulation from MATLAB, capture the results and visualize them in MATLAB.
 Optionally use the MATLAB PHY and Channel models, instead of the statistical models of NS-3.
 
