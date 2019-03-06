@@ -17,7 +17,7 @@
 % * Visualization
 
 %
-% Copyright (C) Vamsi.  2017-18 All rights reserved.
+% Copyright (C) Vamsi.  2017-19 All rights reserved.
 %
 % This copyrighted material is made available to anyone wishing to use,
 % modify, copy, or redistribute it subject to the terms and conditions
@@ -54,6 +54,12 @@ scenarioComplexity = 'complex';
 % While using WST PHY and Channel, this has to be taken care of by the PHY
 % encoder-decoder implementation in MATLAB.
 standard = '802.11a';
+
+% Check the standard. If the standard is other than 802.11a and 
+% useWST flag is set to 1, stop.
+if ((useWST == 1) && ~strcmp(standard, '802.11a'))
+    error("Currently WST callback supports only Non-HT. Remove this check if you modify the callback.")
+end
 
 % Configure APs and STAs for the scenarioComplexity
 if (strcmp(scenarioComplexity,'simple'))
