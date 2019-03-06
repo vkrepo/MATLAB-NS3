@@ -91,7 +91,7 @@ txPPDU = mlWifiGenerator(packet, genConfig, txGain);
 
 %% Channel modeling
 % Passing signal to channel
-[rxPPDU, rxPowerdBm] = mlWifiChannel(txPPDU, ...
+[rxPPDU, rxPowerdBm, snrW] = mlWifiChannel(txPPDU, ...
     senderPosition, receiverPosition, powerLevel, txGain, rxGain, channelBW);
 
 %% Decoding
@@ -110,5 +110,5 @@ for j=1:length(rxPSDU)/8
     rxPacket(j) = (bi2de(rxPSDU((j-1)*8+1:j*8)));
 end
 % Parameters returned to ns3
-resultPacket = [rxPacket rxPowerdBm];
+resultPacket = [rxPacket rxPowerdBm snrW];
 end
