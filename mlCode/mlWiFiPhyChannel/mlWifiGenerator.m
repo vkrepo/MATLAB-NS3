@@ -2,7 +2,7 @@ function txPPDU = mlWifiGenerator(packet, cfgNHT, txGain)
 % mlWifiGenerator WLAN packet encoder for 802.11a
 
 %
-% Copyright (C) Vamsi.  2017-18 All rights reserved.
+% Copyright (C) Vamsi.  2017-19 All rights reserved.
 %
 % This copyrighted material is made available to anyone wishing to use,
 % modify, copy, or redistribute it subject to the terms and conditions
@@ -14,8 +14,4 @@ cfgNHT.PSDULength = length(packet)/8;
 
 % Generate waveform using non-HT configuration for the given data
 txPPDU = wlanWaveformGenerator(packet,cfgNHT);
-
-% Create transmitter object and apply gain
-scale = 10^(txGain/20);
-txPPDU = txPPDU*scale;
 end

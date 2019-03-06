@@ -1,4 +1,4 @@
-function [rxPSDU, rxPowerdBm] = mlWifiChannel(txPPDU, ...
+function [rxPSDU, rxPowerdBm, snrW] = mlWifiChannel(txPPDU, ...
     senderPosition, receiverPosition,powerLevel, txGain, rxGain, channelWidth)
 % mlWifiChannel Models a free-space WiFi channel in MATLAB for 802.11a.
 % Called from WST Callback function, while the simulation runs in NS3.
@@ -19,7 +19,7 @@ function [rxPSDU, rxPowerdBm] = mlWifiChannel(txPPDU, ...
 % RXPOWERDBM         - Received signal strength by receiver in dBm.
 
 %
-% Copyright (C) Vamsi.  2017-18 All rights reserved.
+% Copyright (C) Vamsi.  2017-19 All rights reserved.
 %
 % This copyrighted material is made available to anyone wishing to use,
 % modify, copy, or redistribute it subject to the terms and conditions
@@ -42,7 +42,7 @@ lambda = physconst('LightSpeed')/fc;
 pathLoss = fspl(dist, lambda);
 rxPowerdBm = powerLevel + txGain - pathLoss;
 
-freeSpaceSig = txPPDU*10^((powerLevel-30-pathLoss)/20);
+freeSpaceSig = txPPDU*10^((powerLevel-30-pathLoss+txGain)/20);
 
 rxPowermW = 10^(rxPowerdBm/10); % Before any Rx gain as applied at receiver
 signal = rxPowermW / 1000;
@@ -59,7 +59,8 @@ noiseFloor = noiseFigure * Nt;
 
 % Ideally noiseInterference should also be added here which is not considered here;
 noise = noiseFloor;
-snrDb = 10*log10(double(signal/noise));
+snrW = double(signal/noise);
+snrDb = 10*log10(snrW);
 
 % Create an AWGN noise channel with the calculated SNR and signal power.
 chNoise = comm.AWGNChannel('NoiseMethod', 'Signal to noise ratio (SNR)', ...
