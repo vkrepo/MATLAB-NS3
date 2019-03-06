@@ -7,7 +7,7 @@ This co-simulation code currently:
       *	See the documentation for the list of supported classes.
    * Works with NS3.29 version (see the GitHub branch for NS3.26 version support)
    * Works on Linux. Can get it working on Windows, if the NS3 library port is available to Windows.
-   * For high-fidelity WLAN PHY and Channel modeling, MATLAB WLAN Toolbox is recommended.
+   * For high-fidelity WLAN PHY and Channel modeling, MATLAB WLAN Toolbox is recommended. Included example usage for 802.11a.
    * For proper visualization of the included examples, display should be of Full-HD (1920x1080) resolution.
 
 ## Example scenarios
