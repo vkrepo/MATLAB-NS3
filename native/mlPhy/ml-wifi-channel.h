@@ -1,4 +1,4 @@
-// Copyright (C) Vamsi.  2017-18 All rights reserved.
+// Copyright (C) Vamsi.  2017-19 All rights reserved.
 // Source code based on yans-wifi-channel.h of NS3
 
 /*
@@ -23,35 +23,15 @@
 #ifndef MATLAB_WIFI_CHANNEL_H
 #define MATLAB_WIFI_CHANNEL_H
 
-#include <vector>
-#include <stdint.h>
-#include "ns3/packet.h"
-#include "ns3/wifi-channel.h"
-#include "ns3/wifi-mode.h"
-#include "ns3/wifi-preamble.h"
-#include "ns3/wifi-tx-vector.h"
-#include "ml-wifi-phy.h"
-#include "ns3/nstime.h"
+#include "ns3/channel.h"
 #include "ns3/ptr.h"
 #include "ns3/core-module.h"
 #include "ns3/wifi-module.h"
 #include "ns3/network-module.h"
 #include "ns3/propagation-module.h"
+#include "ml-wifi-phy.h"
 
 using namespace ns3;
-
-class NetDevice;
-class PropagationLossModel;
-class PropagationDelayModel;
-
-struct MatlabParameters
-{
-	double rxPowerDbm;
-	enum mpduType type;
-	Time duration;
-	WifiTxVector txVector;
-	WifiPreamble preamble;
-};
 
 struct NodeProperties
 {
@@ -70,27 +50,41 @@ struct PacketTxVector
 	int channelWidth;
 };
 
+/**
+ * MatlabPhyInfo contains packet error flag and SNR.
+ * 	- flag of non-zero indicates that the packet should be dropped.
+ * 	- snr indicates signal to noise ratio in W calculated in MATLAB
+ */
+struct MatlabPhyInfo
+{
+	int    flag;
+	double snrW;
+};
+
 typedef double* (*MATLAB_WST_CALLBACK)(uint8_t *, int size,  NodeProperties *, NodeProperties *, PacketTxVector *, int64_t);
 /**
- * \brief A Matlab wifi channel
+ * \brief a channel to interconnect MatlabWifiPhy objects.
  * \ingroup wifi
  *
- * This class is expected to be used in tandem with the ns3::MatlabWifiPhy
- * class and contains a ns3::PropagationLossModel and a ns3::PropagationDelayModel.
- * By default, no propagation models are set so, it is the caller's responsability
- * to set them before using the channel.
+ * This class is expected to be used in tandem with the MatlabWifiPhy
+ * class. By default no models are set; it is the user's responsibility
+ * to set the models in MATLAB callback function.
  */
-class MatlabWifiChannel : public WifiChannel
+class MatlabWifiChannel : public Channel
 {
 	public:
+		/**
+		 * \brief Get the type ID.
+		 * \return the object TypeId
+		 */
 		static TypeId GetTypeId (void);
 
 		MatlabWifiChannel ();
 		virtual ~MatlabWifiChannel ();
 
 		//inherited from Channel.
-		virtual uint32_t GetNDevices (void) const;
-		virtual Ptr<ns3::NetDevice> GetDevice (uint32_t i) const;
+		virtual std::size_t GetNDevices (void) const;
+		virtual Ptr<NetDevice> GetDevice (std::size_t i) const;
 
 		/**
 		 * Adds the given MatlabWifiPhy to the PHY list
@@ -102,28 +96,24 @@ class MatlabWifiChannel : public WifiChannel
 		/**
 		 * \param loss the new propagation loss model.
 		 */
-		void SetPropagationLossModel (Ptr<ns3::PropagationLossModel> loss);
+		void SetPropagationLossModel (const Ptr<PropagationLossModel> loss);
 		/**
 		 * \param delay the new propagation delay model.
 		 */
-		void SetPropagationDelayModel (Ptr<ns3::PropagationDelayModel> delay);
+		void SetPropagationDelayModel (const Ptr<PropagationDelayModel> delay);
 
 		/**
-		 * \param sender the device from which the packet is originating.
+		 * \param sender the phy object from which the packet is originating.
 		 * \param packet the packet to send
-		 * \param txPowerDbm the tx power associated to the packet
-		 * \param txVector the TXVECTOR associated to the packet
-		 * \param preamble the preamble associated to the packet
-		 * \param mpdutype the type of the MPDU as defined in WifiPhy::mpduType.
-		 * \param duration the transmission duration associated to the packet
+		 * \param txPowerDbm the tx power associated to the packet, in dBm
+		 * \param duration the transmission duration associated with the packet
 		 *
 		 * This method should not be invoked by normal users. It is
-		 * currently invoked only from WifiPhy::Send. MatlabWifiChannel
-		 * delivers packets only between PHYs with the same m_channelNumber,
-		 * e.g. PHYs that are operating on the same channel.
+		 * currently invoked only from MatlabWifiPhy::StartTx.  The channel
+		 * attempts to deliver the packet to all other MatlabWifiPhy objects
+		 * on the channel (except for the sender).
 		 */
-		void Send (Ptr<MatlabWifiPhy> sender, Ptr<const ns3::Packet> packet, double txPowerLevel, double txGain, double rxGain,
-				WifiTxVector txVector, WifiPreamble preamble, enum mpduType mpdutype, Time duration) const;
+		void Send (Ptr<MatlabWifiPhy> sender, Ptr<const Packet> packet, double txPowerLevel, double txGain, double rxGain, Time duration) const;
 
 		/**
 		 * Assign a fixed random variable stream number to the random variables
@@ -135,8 +125,8 @@ class MatlabWifiChannel : public WifiChannel
 		 * \return the number of stream indices assigned by this model
 		 */
 		int64_t AssignStreams (int64_t stream);
-		MATLAB_WST_CALLBACK WSTCallback;
 
+		MATLAB_WST_CALLBACK WSTCallback;
 		void SetMatlabWSTCallback(MATLAB_WST_CALLBACK matlabWSTCallback); 
 
 	private:
@@ -150,17 +140,17 @@ class MatlabWifiChannel : public WifiChannel
 		 * The method then calls the corresponding MatlabWifiPhy that the first
 		 * bit of the packet has arrived.
 		 *
-		 * \param i index of the corresponding MatlabWifiPhy in the PHY list
+		 * \param receiver the device to which the packet is destined
 		 * \param packet the packet being sent
-		 * \param atts a vector containing the received power in dBm and the packet type
-		 * \param txVector the TXVECTOR of the packet
-		 * \param preamble the type of preamble being used to send the packet
+		 * \param txPowerDbm the tx power associated to the packet being sent (dBm)
+		 * \param duration the transmission duration associated with the packet being sent
+		 * \param mlPhyInfo contains snr and flag
 		 */
-		void Receive (uint32_t i, Ptr<ns3::Packet> packet, struct MatlabParameters parameters, int flag) const;
+		static void Receive (Ptr<MatlabWifiPhy> receiver, Ptr<Packet> packet, double txPowerDbm, Time duration, MatlabPhyInfo mlPhyInfo);
 
 		PhyList m_phyList;                   //!< List of MatlabWifiPhys connected to this MatlabWifiChannel
-		Ptr<ns3::PropagationLossModel> m_loss;    //!< Propagation loss model
-		Ptr<ns3::PropagationDelayModel> m_delay;  //!< Propagation delay model
+		Ptr<PropagationLossModel> m_loss;    //!< Propagation loss model
+		Ptr<PropagationDelayModel> m_delay;  //!< Propagation delay model
 };
 
 #endif /* MATLAB_WIFI_CHANNEL_H */

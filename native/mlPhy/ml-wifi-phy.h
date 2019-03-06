@@ -1,4 +1,4 @@
-// Copyright (C) Vamsi.  2017-18 All rights reserved.
+// Copyright (C) Vamsi.  2017-19 All rights reserved.
 // Source code based on yans-wifi-phy.h of NS3
 
 /*
@@ -28,22 +28,27 @@
 #include "ns3/wifi-phy.h"
 #include "ns3/core-module.h"
 #include "ns3/wifi-module.h"
+#include "ns3/interference-helper.h"
 
 using namespace ns3;
 
 class MatlabWifiChannel;
+
 /**
  * \brief 802.11 PHY layer model
  * \ingroup wifi
  *
  * This PHY model depends on a channel loss and delay
- * model as provided by the ns3::PropagationLossModel
- * and ns3::PropagationDelayModel classes, both of which are
- * members of the ns3::MatlabWifiChannel class.
+ * model as provided in the MATLAB callback function, 
+ * which is part of the MatlabWifiChannel class.
  */
 class MatlabWifiPhy : public WifiPhy
 {
 	public:
+		/**
+		 * \brief Get the type ID.
+		 * \return the object TypeId
+		 */
 		static TypeId GetTypeId (void);
 
 		MatlabWifiPhy ();
@@ -54,57 +59,75 @@ class MatlabWifiPhy : public WifiPhy
 		 *
 		 * \param channel the MatlabWifiChannel this MatlabWifiPhy is to be connected to
 		 */
-		void SetChannel (Ptr<MatlabWifiChannel> channel);
+		void SetChannel (const Ptr<MatlabWifiChannel> channel);
+
+		/**
+		 * \param packet the packet to send
+		 * \param txVector the TXVECTOR that has tx parameters such as mode, the transmission mode to use to send
+		 *        this packet, and txPowerLevel, a power level to use to send this packet. The real transmission
+		 *        power is calculated as txPowerMin + txPowerLevel * (txPowerMax - txPowerMin) / nTxLevels
+		 * \param txDuration duration of the transmission.
+		 */
+		void StartTx (Ptr<Packet> packet, WifiTxVector txVector, Time txDuration);
+
+		virtual Ptr<Channel> GetChannel (void) const;
+
+		//Overloading methods present in wifi-phy
 		/**
 		 * Starting receiving the plcp of a packet (i.e. the first bit of the preamble has arrived).
 		 *
 		 * \param packet the arriving packet
-		 * \param rxPowerDbm the receive power in dBm
-		 * \param txVector the TXVECTOR of the arriving packet
-		 * \param preamble the preamble of the arriving packet
-		 * \param mpdutype the type of the MPDU as defined in WifiPhy::mpduType.
+		 * \param rxPowerW the receive power in dBm
 		 * \param rxDuration the duration needed for the reception of the packet
+		 * \param mlPhyInfo contains snr and flag
 		 */
-		void StartReceivePreambleAndHeader (Ptr<ns3::Packet> packet,
-				double rxPowerDbm,
-				WifiTxVector txVector,
-				WifiPreamble preamble,
-				enum mpduType mpdutype,
+		void StartReceivePreambleAndHeader (Ptr<Packet> packet,
+				double rxPowerW,
 				Time rxDuration, 
-				int flag);
+				struct MatlabPhyInfo mlPhyInfo);
 		/**
 		 * Starting receiving the payload of a packet (i.e. the first bit of the packet has arrived).
 		 *
 		 * \param packet the arriving packet
 		 * \param txVector the TXVECTOR of the arriving packet
-		 * \param preamble the preamble of the arriving packet
 		 * \param mpdutype the type of the MPDU as defined in WifiPhy::mpduType.
 		 * \param event the corresponding event of the first time the packet arrives
+		 * \param mlPhyInfo contains snr and flag
 		 */
-		void StartReceivePacket (Ptr<ns3::Packet> packet,
+		void StartReceivePacket (Ptr<Packet> packet,
 				WifiTxVector txVector,
-				WifiPreamble preamble,
-				enum mpduType mpdutype,
-				int flag);
+				MpduType mpdutype,
+				Ptr<Event> event,
+				struct MatlabPhyInfo mlPhyInfo);
 
-		virtual void SetReceiveOkCallback (WifiPhy::RxOkCallback callback);
-		virtual void SetReceiveErrorCallback (WifiPhy::RxErrorCallback callback);
-		virtual void SendPacket (Ptr<const ns3::Packet> packet, WifiTxVector txVector, enum WifiPreamble preamble);
-		virtual void SendPacket (Ptr<const ns3::Packet> packet, WifiTxVector txVector, enum WifiPreamble preamble, enum mpduType mpdutype);
-		//virtual void SendPacketToMwPhy(Ptr<const Packet> packet, WifiTxVector txVector, enum WifiPreamble preamble, enum mpduType mpdutype);
-		virtual void RegisterListener (WifiPhyListener *listener);
-		virtual void UnregisterListener (WifiPhyListener *listener);
-		virtual void SetSleepMode (void);
-		virtual void ResumeFromSleep (void);
-		virtual Ptr<ns3::WifiChannel> GetChannel (void) const;
+
 
 	protected:
 		// Inherited
 		virtual void DoDispose (void);
-		virtual bool DoChannelSwitch (uint16_t id);
-		virtual bool DoFrequencySwitch (uint32_t frequency);
+
 
 	private:
+		//Overloading method present in wifi-phy
+		/**
+		 * Starting receiving the packet after having detected the medium is idle 
+		 *
+		 * \param packet the arriving packet
+		 * \param txVector the TXVECTOR of the arriving packet
+		 * \param mpdutype the type of the MPDU as defined in WifiPhy::MpduType.
+		 * \param rxPowerW the receive power in W
+		 * \param rxDuration the duration needed for the reception of the packet
+		 * \param event the corresponding event of the first time the packet arrives
+		 * \param mlPhyInfo contains snr and flag
+		 */
+
+		void StartRx (Ptr<Packet> packet,
+				WifiTxVector txVector,
+				MpduType mpdutype,
+				double rxPowerW,
+				Time rxDuration,
+				Ptr<Event> event,
+				struct MatlabPhyInfo mlPhyInfo);
 
 		/**
 		 * The last bit of the packet has arrived.
@@ -113,9 +136,16 @@ class MatlabWifiPhy : public WifiPhy
 		 * \param preamble the preamble of the arriving packet
 		 * \param mpdutype the type of the MPDU as defined in WifiPhy::mpduType.
 		 * \param event the corresponding event of the first time the packet arrives
+		 * \param mlPhyInfo contains snr and flag
 		 */
-		void EndReceive (Ptr<ns3::Packet> packet, enum WifiPreamble preamble, enum mpduType mpdutype, Ptr<ns3::InterferenceHelper::Event> event, int flag);
-		Ptr<MatlabWifiChannel> m_channel;        //!< MatlabWifiChannel that this MatlabWifiPhy is connected to
+		void EndReceive (Ptr<Packet> packet, 
+				WifiPreamble preamble, 
+				MpduType mpdutype, 
+				Ptr<Event> event, 
+				struct MatlabPhyInfo mlPhyInfo);
+
+		Ptr<MatlabWifiChannel> m_channel; //!< MatlabWifiChannel that this MatlabWifiPhy is connected to
+		void MaybeCcaBusyDuration (void);
 };
 
 

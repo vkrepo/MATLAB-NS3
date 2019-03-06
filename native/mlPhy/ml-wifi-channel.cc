@@ -1,4 +1,4 @@
-// Copyright (C) Vamsi.  2017-18 All rights reserved.
+// Copyright (C) Vamsi.  2017-19 All rights reserved.
 // Source code based on yans-wifi-channel.cc of NS3
 
 /*
@@ -22,21 +22,23 @@
 
 #include "ns3/packet.h"
 #include "ns3/simulator.h"
-#include "ns3/mobility-model.h"
-#include "ns3/net-device.h"
-#include "ns3/node.h"
-#include "ns3/ptr.h"
 #include "ns3/log.h"
 #include "ns3/pointer.h"
-#include "ns3/object-factory.h"
-#include "ml-wifi-channel.h"
+#include "ns3/net-device.h"
+#include "ns3/node.h"
 #include "ns3/propagation-loss-model.h"
 #include "ns3/propagation-delay-model.h"
+#include "ns3/mobility-model.h"
+#include "ml-wifi-channel.h"
+#include "ml-wifi-phy.h"
+#include "ns3/wifi-utils.h"
+#include "ns3/ptr.h"
 #include "ns3/core-module.h"
 #include "ns3/wifi-module.h"
 #include "ns3/network-module.h"
 
 using namespace ns3;
+
 NS_LOG_COMPONENT_DEFINE ("MatlabWifiChannel");
 
 NS_OBJECT_ENSURE_REGISTERED (MatlabWifiChannel);
@@ -44,64 +46,77 @@ NS_OBJECT_ENSURE_REGISTERED (MatlabWifiChannel);
 TypeId MatlabWifiChannel::GetTypeId (void)
 {
 	static TypeId tid = TypeId ("MatlabWifiChannel")
-		.SetParent<WifiChannel> ()
+		.SetParent<Channel> ()
 		.AddConstructor<MatlabWifiChannel> ()
 		.AddAttribute ("PropagationLossModel", "A pointer to the propagation loss model attached to this channel.",
 				PointerValue (),
 				MakePointerAccessor (&MatlabWifiChannel::m_loss),
-				MakePointerChecker<ns3::PropagationLossModel> ())
+				MakePointerChecker<PropagationLossModel> ())
 		.AddAttribute ("PropagationDelayModel", "A pointer to the propagation delay model attached to this channel.",
 				PointerValue (),
 				MakePointerAccessor (&MatlabWifiChannel::m_delay),
-				MakePointerChecker<ns3::PropagationDelayModel> ())
+				MakePointerChecker<PropagationDelayModel> ())
 		;
 	return tid;
 }
 
 MatlabWifiChannel::MatlabWifiChannel ()
 {
+	NS_LOG_FUNCTION (this);
 }
 
 MatlabWifiChannel::~MatlabWifiChannel ()
 {
-	NS_LOG_FUNCTION_NOARGS ();
+	NS_LOG_FUNCTION (this);
 	m_phyList.clear ();
 }
 
-void MatlabWifiChannel::SetPropagationLossModel (Ptr<ns3::PropagationLossModel> loss)
+void MatlabWifiChannel::SetPropagationLossModel (const Ptr<PropagationLossModel> loss)
 {
+	NS_LOG_FUNCTION (this << loss);
 	m_loss = loss;
 }
 
-void MatlabWifiChannel::SetPropagationDelayModel (Ptr<ns3::PropagationDelayModel> delay)
+void MatlabWifiChannel::SetPropagationDelayModel (const Ptr<PropagationDelayModel> delay)
 {
+	NS_LOG_FUNCTION (this << delay);
 	m_delay = delay;
 }
 
-void MatlabWifiChannel::Send (Ptr<MatlabWifiPhy> sender, Ptr<const ns3::Packet> packet, double txPowerLevel, double txGain, double rxGain, 
-		WifiTxVector txVector, WifiPreamble preamble, enum mpduType mpdutype, Time duration) const
+void MatlabWifiChannel::Send (Ptr<MatlabWifiPhy> sender, Ptr<const Packet> packet, double txPowerLevel, double txGain, double rxGain, Time duration) const
 {
+	NS_LOG_FUNCTION (this << sender << packet << txPowerLevel << duration.GetSeconds ());
 	NodeProperties sourceNode, destinationNode;
 	PacketTxVector pktTxVector;
-	Ptr<ns3::MobilityModel> senderMobility = sender->GetMobility ()->GetObject<MobilityModel> ();
+	Ptr<MobilityModel> senderMobility = sender->GetMobility();
 	Vector senderPos = senderMobility->GetPosition ();
 	Vector senderVel = senderMobility->GetVelocity ();
 	NS_ASSERT (senderMobility != 0);
 	uint32_t j = 0;
 
-	if (txVector.GetMode ().GetModulationClass () == WIFI_MOD_CLASS_HT || txVector.GetMode ().GetModulationClass () == WIFI_MOD_CLASS_VHT)
+	/* Reading tag from packet to access txVector */
+	WifiPhyTag tag;
+	bool found = packet->PeekPacketTag (tag);
+	if(!found){
+		NS_FATAL_ERROR ("Received Wi-Fi Signal with no WifiPhyTag");
+		return;
+	}
+	WifiTxVector txVector = tag.GetWifiTxVector();
+
+	if (txVector.GetMode ().GetModulationClass () == WIFI_MOD_CLASS_HT || 
+			txVector.GetMode ().GetModulationClass () == WIFI_MOD_CLASS_VHT)
 	{
 		pktTxVector.rateMcs = txVector.GetMode ().GetMcsValue ();
 		pktTxVector.isNotLegacy = 1;
 	}
 	else
 	{
-		/* Value here is multipless of 500 Kbps units */
-		pktTxVector.rateMcs = txVector.GetMode ().GetDataRate (txVector.GetChannelWidth (), txVector.IsShortGuardInterval (), 1) * txVector.GetNss () / 500000;
+		/* Value here is multiple of 500 Kbps units */
+		pktTxVector.rateMcs = txVector.GetMode ().GetDataRate (txVector.GetChannelWidth (), txVector.GetGuardInterval (), 1) * txVector.GetNss () / 500000;
 		pktTxVector.isNotLegacy = 0;
 	}
 
-	sourceNode.nodeId = ns3::Simulator::GetContext();
+	sourceNode.nodeId = Simulator::GetContext();
 	sourceNode.location[0] = senderPos.x;
 	sourceNode.location[1] = senderPos.y;
 	sourceNode.location[2] = senderPos.z;
@@ -115,14 +130,15 @@ void MatlabWifiChannel::Send (Ptr<MatlabWifiPhy> sender, Ptr<const ns3::Packet> 
 	{
 		if (sender != (*i))
 		{
-			//For now don't account for inter channel interference
+			//For now don't account for inter channel interference nor channel bonding
 			if ((*i)->GetChannelNumber () != sender->GetChannelNumber ())
 			{
 				continue;
 			}
 
 			/* Filling destination node details in a structure including its id,location,velocity,rxGain*/ 
-			Ptr<ns3::MobilityModel> receiverMobility = (*i)->GetMobility ()->GetObject<MobilityModel> ();
+			Ptr<MobilityModel> receiverMobility = (*i)->GetMobility ()->GetObject<MobilityModel> ();
+
 			Vector receiverPos = receiverMobility->GetPosition ();
 			Vector receiverVel = receiverMobility->GetVelocity ();
 			destinationNode.nodeId = j;
@@ -140,9 +156,9 @@ void MatlabWifiChannel::Send (Ptr<MatlabWifiPhy> sender, Ptr<const ns3::Packet> 
 			int size = packet->GetSize();
 
 			pktTxVector.channelWidth = txVector.GetChannelWidth ();
-			/* Calling matlab callback */
+			/* Calling MATLAB callback */
 
-			int64_t time  = ns3::Simulator::Now().GetMilliSeconds();
+			int64_t time  = Simulator::Now().GetMilliSeconds();
 			double *WSTPacket = WSTCallback(buffer, size, &sourceNode, &destinationNode, &pktTxVector, time);
 
 			// TODO:: Here we are comparing the packet but ideally CRC should be there.
@@ -162,16 +178,18 @@ void MatlabWifiChannel::Send (Ptr<MatlabWifiPhy> sender, Ptr<const ns3::Packet> 
 					break;
 				}
 			}
-			/* if(flag == 1)
-			   printf("The packet is corrupted at index %d\n",index);
-			   else
-			   printf("Packet is not corrupted\n"); */
+
 			Time delay = m_delay->GetDelay (senderMobility, receiverMobility);
 
-			/* Rx power DBM will be calculated on matlab and the value is sent to ns3 */
+			/* Decoded packet along with calculated Rx power in DBM and SNR-Watts will be returned from MATLAB */
+			MatlabPhyInfo mlPhyInfo;
 			double rxPowerDbm = WSTPacket[packet->GetSize()];
-			Ptr<ns3::Packet> copy = packet->Copy ();
-			Ptr<ns3::Object> dstNetDevice = m_phyList[j]->GetDevice ();
+			mlPhyInfo.snrW = WSTPacket[packet->GetSize() + 1];
+			mlPhyInfo.flag = flag;
+			NS_LOG_DEBUG ("propagation: txPower=" << txPowerLevel << "dbm, rxPower=" << rxPowerDbm << "dbm, " <<
+					"distance=" << senderMobility->GetDistanceFrom (receiverMobility) << "m, delay=" << delay);
+			Ptr<Packet> copy = packet->Copy ();
+			Ptr<NetDevice> dstNetDevice = (*i)->GetDevice ();
 			uint32_t dstNode;
 			if (dstNetDevice == 0)
 			{
@@ -179,53 +197,48 @@ void MatlabWifiChannel::Send (Ptr<MatlabWifiPhy> sender, Ptr<const ns3::Packet> 
 			}
 			else
 			{
-				dstNode = dstNetDevice->GetObject<ns3::NetDevice> ()->GetNode ()->GetId ();
+				dstNode = dstNetDevice->GetNode ()->GetId ();
 			}
 
-			struct MatlabParameters parameters;
-			parameters.rxPowerDbm = rxPowerDbm;
-			parameters.type = mpdutype;
-			parameters.duration = duration;
-			parameters.txVector = txVector;
-			parameters.preamble = preamble;
-			// std::cout<<ns3::Simulator::Now()<<std::endl;
-			// WifiMode payloadMode = txVector.GetMode ();
-			// std::cout<<"mode is"<<payloadMode<<std::endl;
-			// std::cout<<"MCSvalue is"<<payloadMode.GetMcsValue ()<<std::endl;
 			Simulator::ScheduleWithContext (dstNode,
-					delay, &MatlabWifiChannel::Receive, this,
-					j, copy, parameters, flag);
+					delay, &MatlabWifiChannel::Receive,
+					(*i), copy, rxPowerDbm, duration, mlPhyInfo);
 		}
 	}
 }
 
-void MatlabWifiChannel::Receive (uint32_t i, Ptr<ns3::Packet> packet, struct MatlabParameters parameters, int flag) const
+void MatlabWifiChannel::Receive (Ptr<MatlabWifiPhy> phy, Ptr<Packet> packet, double rxPowerDbm, Time duration, MatlabPhyInfo mlPhyInfo)
 {
-	m_phyList[i]->StartReceivePreambleAndHeader (packet, parameters.rxPowerDbm, parameters.txVector, parameters.preamble, parameters.type, parameters.duration, flag);
+	NS_LOG_FUNCTION (phy << packet << rxPowerDbm << duration.GetSeconds ());
+	phy->StartReceivePreambleAndHeader (packet, DbmToW (rxPowerDbm + phy->GetRxGain ()), duration, mlPhyInfo);
 }
 
-uint32_t MatlabWifiChannel::GetNDevices (void) const
+std::size_t MatlabWifiChannel::GetNDevices (void) const
 {
 	return m_phyList.size ();
 }
 
-Ptr<ns3::NetDevice> MatlabWifiChannel::GetDevice (uint32_t i) const
+Ptr<NetDevice> MatlabWifiChannel::GetDevice (std::size_t i) const
 {
-	return m_phyList[i]->GetDevice ()->GetObject<ns3::NetDevice> ();
+	return m_phyList[i]->GetDevice ()->GetObject<NetDevice> ();
 }
 
 void MatlabWifiChannel::Add (Ptr<MatlabWifiPhy> phy)
 {
+	NS_LOG_FUNCTION (this << phy);
 	m_phyList.push_back (phy);
 }
 
 int64_t MatlabWifiChannel::AssignStreams (int64_t stream)
 {
+	NS_LOG_FUNCTION (this << stream);
 	int64_t currentStream = stream;
 	currentStream += m_loss->AssignStreams (stream);
 	return (currentStream - stream);
 }
+
 void MatlabWifiChannel::SetMatlabWSTCallback(MATLAB_WST_CALLBACK matlabWSTCallback)
 {
 	WSTCallback = matlabWSTCallback;
 }
+

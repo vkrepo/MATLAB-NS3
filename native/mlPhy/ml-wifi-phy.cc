@@ -1,4 +1,4 @@
-// Copyright (C) Vamsi.  2017-18 All rights reserved.
+// Copyright (C) Vamsi.  2017-19 All rights reserved.
 // Source code based on yans-wifi-phy.cc of NS3
 
 /*
@@ -22,21 +22,16 @@
  *          Sébastien Deronne <sebastien.deronne@gmail.com>
  */
 
+#include "ns3/log.h"
+#include "ns3/packet.h"
 #include "ml-wifi-phy.h"
 #include "ml-wifi-channel.h"
-#include "ns3/wifi-phy-state-helper.h"
-#include "ns3/simulator.h"
-#include "ns3/packet.h"
-#include "ns3/assert.h"
-#include "ns3/log.h"
-#include "ns3/double.h"
-#include "ns3/ampdu-tag.h"
-#include <cmath>
 #include <iostream>
 #include "ns3/core-module.h"
 #include "ns3/wifi-module.h"
 using namespace ns3;
 using namespace std;
+
 
 NS_LOG_COMPONENT_DEFINE ("MatlabWifiPhy");
 
@@ -50,7 +45,6 @@ TypeId MatlabWifiPhy::GetTypeId (void)
 		;
 	return tid;
 }
-
 
 MatlabWifiPhy::MatlabWifiPhy ()
 {
@@ -66,217 +60,89 @@ void MatlabWifiPhy::DoDispose (void)
 {
 	NS_LOG_FUNCTION (this);
 	m_channel = 0;
+	WifiPhy::DoDispose ();
 }
 
-bool MatlabWifiPhy::DoChannelSwitch (uint16_t nch)
-{
-	if (!IsInitialized ())
-	{
-		//this is not channel switch, this is initialization
-		NS_LOG_DEBUG ("initialize to channel " << nch);
-		return true;
-	}
-
-	NS_ASSERT (!IsStateSwitching ());
-	switch (m_state->GetState ())
-	{
-		case MatlabWifiPhy::RX:
-			NS_LOG_DEBUG ("drop packet because of channel switching while reception");
-			m_endPlcpRxEvent.Cancel ();
-			m_endRxEvent.Cancel ();
-			goto switchChannel;
-			break;
-		case MatlabWifiPhy::TX:
-			NS_LOG_DEBUG ("channel switching postponed until end of current transmission");
-			Simulator::Schedule (GetDelayUntilIdle (), &WifiPhy::SetChannelNumber, this, nch);
-			break;
-		case MatlabWifiPhy::CCA_BUSY:
-		case MatlabWifiPhy::IDLE:
-			goto switchChannel;
-			break;
-		case MatlabWifiPhy::SLEEP:
-			NS_LOG_DEBUG ("channel switching ignored in sleep mode");
-			break;
-		default:
-			NS_ASSERT (false);
-			break;
-	}
-
-	return false;
-
-switchChannel:
-
-	NS_LOG_DEBUG ("switching channel " << GetChannelNumber () << " -> " << nch);
-	m_state->SwitchToChannelSwitching (GetChannelSwitchDelay ());
-	m_interference.EraseEvents ();
-	/*
-	 * Needed here to be able to correctly sensed the medium for the first
-	 * time after the switching. The actual switching is not performed until
-	 * after m_channelSwitchDelay. Packets received during the switching
-	 * state are added to the event list and are employed later to figure
-	 * out the state of the medium after the switching.
-	 */
-	return true;
-}
-
-bool MatlabWifiPhy::DoFrequencySwitch (uint32_t frequency)
-{
-	if (!IsInitialized ())
-	{
-		//this is not channel switch, this is initialization
-		NS_LOG_DEBUG ("start at frequency " << frequency);
-		return true;
-	}
-
-	NS_ASSERT (!IsStateSwitching ());
-	switch (m_state->GetState ())
-	{
-		case MatlabWifiPhy::RX:
-			NS_LOG_DEBUG ("drop packet because of channel/frequency switching while reception");
-			m_endPlcpRxEvent.Cancel ();
-			m_endRxEvent.Cancel ();
-			goto switchFrequency;
-			break;
-		case MatlabWifiPhy::TX:
-			NS_LOG_DEBUG ("channel/frequency switching postponed until end of current transmission");
-			Simulator::Schedule (GetDelayUntilIdle (), &WifiPhy::SetFrequency, this, frequency);
-			break;
-		case MatlabWifiPhy::CCA_BUSY:
-		case MatlabWifiPhy::IDLE:
-			goto switchFrequency;
-			break;
-		case MatlabWifiPhy::SLEEP:
-			NS_LOG_DEBUG ("frequency switching ignored in sleep mode");
-			break;
-		default:
-			NS_ASSERT (false);
-			break;
-	}
-
-	return false;
-
-switchFrequency:
-
-	NS_LOG_DEBUG ("switching frequency " << GetFrequency () << " -> " << frequency);
-	m_state->SwitchToChannelSwitching (GetChannelSwitchDelay ());
-	m_interference.EraseEvents ();
-	/*
-	 * Needed here to be able to correctly sensed the medium for the first
-	 * time after the switching. The actual switching is not performed until
-	 * after m_channelSwitchDelay. Packets received during the switching
-	 * state are added to the event list and are employed later to figure
-	 * out the state of the medium after the switching.
-	 */
-	return true;
-}
-
-Ptr<ns3::WifiChannel> MatlabWifiPhy::GetChannel (void) const
+Ptr<Channel> MatlabWifiPhy::GetChannel (void) const
 {
 	return m_channel;
 }
 
-void MatlabWifiPhy::SetChannel (Ptr<MatlabWifiChannel> channel)
+void MatlabWifiPhy::SetChannel (const Ptr<MatlabWifiChannel> channel)
 {
+	NS_LOG_FUNCTION (this << channel);
 	m_channel = channel;
 	m_channel->Add (this);
 }
 
-void MatlabWifiPhy::SetSleepMode (void)
+void MatlabWifiPhy::StartTx (Ptr<Packet> packet, WifiTxVector txVector, Time txDuration)
 {
-	NS_LOG_FUNCTION (this);
-	switch (m_state->GetState ())
+	NS_LOG_DEBUG ("Start transmission: signal power before antenna gain=" << GetPowerDbm (txVector.GetTxPowerLevel ()) << "dBm");
+	m_channel->Send (this, packet, GetPowerDbm (txVector.GetTxPowerLevel ()), GetTxGain(), GetRxGain(), txDuration);
+}
+
+//Overloading functions from wifi-phy. 
+void MatlabWifiPhy::StartReceivePreambleAndHeader (Ptr<Packet> packet, double rxPowerW, Time rxDuration, MatlabPhyInfo mlPhyInfo)
+{
+	/* Reading tag from packet to access txVector */
+	WifiPhyTag tag;
+	bool found = packet->PeekPacketTag (tag);
+	if (!found)
 	{
-		case MatlabWifiPhy::TX:
-			NS_LOG_DEBUG ("setting sleep mode postponed until end of current transmission");
-			Simulator::Schedule (GetDelayUntilIdle (), &MatlabWifiPhy::SetSleepMode, this);
-			break;
-		case MatlabWifiPhy::RX:
-			NS_LOG_DEBUG ("setting sleep mode postponed until end of current reception");
-			Simulator::Schedule (GetDelayUntilIdle (), &MatlabWifiPhy::SetSleepMode, this);
-			break;
-		case MatlabWifiPhy::SWITCHING:
-			NS_LOG_DEBUG ("setting sleep mode postponed until end of channel switching");
-			Simulator::Schedule (GetDelayUntilIdle (), &MatlabWifiPhy::SetSleepMode, this);
-			break;
-		case MatlabWifiPhy::CCA_BUSY:
-		case MatlabWifiPhy::IDLE:
-			NS_LOG_DEBUG ("setting sleep mode");
-			m_state->SwitchToSleep ();
-			break;
-		case MatlabWifiPhy::SLEEP:
-			NS_LOG_DEBUG ("already in sleep mode");
-			break;
-		default:
-			NS_ASSERT (false);
-			break;
+		NS_FATAL_ERROR ("Received Wi-Fi Signal with no WifiPhyTag");
+		return;
 	}
-}
 
-void MatlabWifiPhy::ResumeFromSleep (void)
-{
-	NS_LOG_FUNCTION (this);
-	switch (m_state->GetState ())
-	{
-		case MatlabWifiPhy::TX:
-		case MatlabWifiPhy::RX:
-		case MatlabWifiPhy::IDLE:
-		case MatlabWifiPhy::CCA_BUSY:
-		case MatlabWifiPhy::SWITCHING:
-			{
-				NS_LOG_DEBUG ("not in sleep mode, there is nothing to resume");
-				break;
-			}
-		case MatlabWifiPhy::SLEEP:
-			{
-				NS_LOG_DEBUG ("resuming from sleep mode");
-				Time delayUntilCcaEnd = m_interference.GetEnergyDuration (DbmToW (GetCcaMode1Threshold ()));
-				m_state->SwitchFromSleep (delayUntilCcaEnd);
-				break;
-			}
-		default:
-			{
-				NS_ASSERT (false);
-				break;
-			}
-	}
-}
-
-void MatlabWifiPhy::SetReceiveOkCallback (RxOkCallback callback)
-{
-	m_state->SetReceiveOkCallback (callback);
-}
-
-void MatlabWifiPhy::SetReceiveErrorCallback (RxErrorCallback callback)
-{
-	m_state->SetReceiveErrorCallback (callback);
-}
-
-void MatlabWifiPhy::StartReceivePreambleAndHeader (Ptr<ns3::Packet> packet,
-		double rxPowerDbm,
-		WifiTxVector txVector,
-		enum WifiPreamble preamble,
-		enum mpduType mpdutype,
-		Time rxDuration, int flag)
-{
-	//This function should be later split to check separately whether plcp preamble and plcp header can be successfully received.
-	//Note: plcp preamble reception is not yet modeled.
-	NS_LOG_FUNCTION (this << packet << rxPowerDbm << txVector.GetMode () << preamble << (uint32_t)mpdutype);
-	AmpduTag ampduTag;
-	rxPowerDbm += GetRxGain ();
-	double rxPowerW = DbmToW (rxPowerDbm);
-	Time endRx = Simulator::Now () + rxDuration;
-	Time preambleAndHeaderDuration = CalculatePlcpPreambleAndHeaderDuration (txVector, preamble);
-
-	Ptr<ns3::InterferenceHelper::Event> event;
-	event = m_interference.Add (packet->GetSize (),
+	WifiTxVector txVector = tag.GetWifiTxVector ();
+	Ptr<Event> event;
+	event = m_interference.Add (packet,
 			txVector,
-			preamble,
 			rxDuration,
 			rxPowerW);
 
+	//This function should be later split to check separately whether plcp preamble and plcp header can be successfully received.
+	//Note: plcp preamble reception is not yet modeled.
+	if (m_state->GetState () == WifiPhyState::OFF)
+	{
+		NS_LOG_DEBUG ("Cannot start RX because device is OFF");
+		return;
+	}
+
+	NS_LOG_FUNCTION (this << packet << WToDbm (rxPowerW) << rxDuration);
+
+	if (tag.GetFrameComplete () == 0)
+	{
+		NS_LOG_DEBUG ("drop packet because of incomplete frame");
+		NotifyRxDrop (packet);
+		m_plcpSuccess = false;
+		return;
+	}
+
+	if (txVector.GetMode ().GetModulationClass () == WIFI_MOD_CLASS_HT
+			&& (txVector.GetNss () != (1 + (txVector.GetMode ().GetMcsValue () / 8))))
+	{
+		NS_FATAL_ERROR ("MCS value does not match NSS value: MCS = " << +txVector.GetMode ().GetMcsValue () << ", NSS = " << +txVector.GetNss ());
+	}
+
+	Time endRx = Simulator::Now () + rxDuration;
+	if (txVector.GetNss () > GetMaxSupportedRxSpatialStreams ())
+	{
+		NS_LOG_DEBUG ("drop packet because not enough RX antennas");
+		NotifyRxDrop (packet);
+		m_plcpSuccess = false;
+		if (endRx > Simulator::Now () + m_state->GetDelayUntilIdle ())
+		{
+			//that packet will be noise _after_ the transmission of the
+			//currently-transmitted packet.
+			MaybeCcaBusyDuration ();
+			return;
+		}
+	}
+
+	MpduType mpdutype = tag.GetMpduType ();
 	switch (m_state->GetState ())
 	{
-		case MatlabWifiPhy::SWITCHING:
+		case WifiPhyState::SWITCHING:
 			NS_LOG_DEBUG ("drop packet because of channel switching");
 			NotifyRxDrop (packet);
 			m_plcpSuccess = false;
@@ -292,10 +158,11 @@ void MatlabWifiPhy::StartReceivePreambleAndHeader (Ptr<ns3::Packet> packet,
 			{
 				//that packet will be noise _after_ the completion of the
 				//channel switching.
-				goto maybeCcaBusy;
+				MaybeCcaBusyDuration ();
+				return;
 			}
 			break;
-		case MatlabWifiPhy::RX:
+		case WifiPhyState::RX:
 			NS_LOG_DEBUG ("drop packet because already in Rx (power=" <<
 					rxPowerW << "W)");
 			NotifyRxDrop (packet);
@@ -303,10 +170,11 @@ void MatlabWifiPhy::StartReceivePreambleAndHeader (Ptr<ns3::Packet> packet,
 			{
 				//that packet will be noise _after_ the reception of the
 				//currently-received packet.
-				goto maybeCcaBusy;
+				MaybeCcaBusyDuration ();
+				return;
 			}
 			break;
-		case MatlabWifiPhy::TX:
+		case WifiPhyState::TX:
 			NS_LOG_DEBUG ("drop packet because already in Tx (power=" <<
 					rxPowerW << "W)");
 			NotifyRxDrop (packet);
@@ -314,111 +182,107 @@ void MatlabWifiPhy::StartReceivePreambleAndHeader (Ptr<ns3::Packet> packet,
 			{
 				//that packet will be noise _after_ the transmission of the
 				//currently-transmitted packet.
-				goto maybeCcaBusy;
+				MaybeCcaBusyDuration ();
+				return;
 			}
 			break;
-		case MatlabWifiPhy::CCA_BUSY:
-		case MatlabWifiPhy::IDLE:
-			if (rxPowerW > GetEdThresholdW ()) //checked here, no need to check in the payload reception (current implementation assumes constant rx power over the packet duration)
-			{
-				if (preamble == WIFI_PREAMBLE_NONE && (m_mpdusNum == 0 || m_plcpSuccess == false))
-				{
-					m_plcpSuccess = false;
-					m_mpdusNum = 0;
-					NS_LOG_DEBUG ("drop packet because no PLCP preamble/header has been received");
-					NotifyRxDrop (packet);
-					goto maybeCcaBusy;
-				}
-				else if (preamble != WIFI_PREAMBLE_NONE && packet->PeekPacketTag (ampduTag) && m_mpdusNum == 0)
-				{
-					//received the first MPDU in an MPDU
-					m_mpdusNum = ampduTag.GetRemainingNbOfMpdus ();
-					m_rxMpduReferenceNumber++;
-				}
-				else if (preamble == WIFI_PREAMBLE_NONE && packet->PeekPacketTag (ampduTag) && m_mpdusNum > 0)
-				{
-					//received the other MPDUs that are part of the A-MPDU
-					if (ampduTag.GetRemainingNbOfMpdus () < (m_mpdusNum - 1))
-					{
-						NS_LOG_DEBUG ("Missing MPDU from the A-MPDU " << m_mpdusNum - ampduTag.GetRemainingNbOfMpdus ());
-						m_mpdusNum = ampduTag.GetRemainingNbOfMpdus ();
-					}
-					else
-					{
-						m_mpdusNum--;
-					}
-				}
-				else if (preamble != WIFI_PREAMBLE_NONE && packet->PeekPacketTag (ampduTag) && m_mpdusNum > 0)
-				{
-					NS_LOG_DEBUG ("New A-MPDU started while " << m_mpdusNum << " MPDUs from previous are lost");
-					m_mpdusNum = ampduTag.GetRemainingNbOfMpdus ();
-				}
-				else if (preamble != WIFI_PREAMBLE_NONE && m_mpdusNum > 0 )
-				{
-					NS_LOG_DEBUG ("Didn't receive the last MPDUs from an A-MPDU " << m_mpdusNum);
-					m_mpdusNum = 0;
-				}
-
-				NS_LOG_DEBUG ("sync to signal (power=" << rxPowerW << "W)");
-				//sync to signal
-				m_state->SwitchToRx (rxDuration);
-				NS_ASSERT (m_endPlcpRxEvent.IsExpired ());
-				NotifyRxBegin (packet);
-				m_interference.NotifyRxStart ();
-
-				if (preamble != WIFI_PREAMBLE_NONE)
-				{
-					NS_ASSERT (m_endPlcpRxEvent.IsExpired ());
-					m_endPlcpRxEvent = Simulator::Schedule (preambleAndHeaderDuration, &MatlabWifiPhy::StartReceivePacket, this,
-							packet, txVector, preamble, mpdutype, flag);
-				}
-
-				NS_ASSERT (m_endRxEvent.IsExpired ());
-				m_endRxEvent = Simulator::Schedule (rxDuration, &MatlabWifiPhy::EndReceive, this,
-						packet, preamble, mpdutype, event, flag);
-			}
-			else
-			{
-				NS_LOG_DEBUG ("drop packet because signal power too Small (" <<
-						rxPowerW << "<" << GetEdThresholdW () << ")");
-				NotifyRxDrop (packet);
-				m_plcpSuccess = false;
-				goto maybeCcaBusy;
-			}
+		case WifiPhyState::CCA_BUSY:
+		case WifiPhyState::IDLE:
+			StartRx (packet, txVector, mpdutype, rxPowerW, rxDuration, event, mlPhyInfo);
 			break;
-		case MatlabWifiPhy::SLEEP:
+		case WifiPhyState::SLEEP:
 			NS_LOG_DEBUG ("drop packet because in sleep mode");
 			NotifyRxDrop (packet);
 			m_plcpSuccess = false;
 			break;
-	}
-
-	return;
-
-maybeCcaBusy:
-	//We are here because we have received the first bit of a packet and we are
-	//not going to be able to synchronize on it
-	//In this model, CCA becomes busy when the aggregation of all signals as
-	//tracked by the InterferenceHelper class is higher than the CcaBusyThreshold
-
-	Time delayUntilCcaEnd = m_interference.GetEnergyDuration (DbmToW (GetCcaMode1Threshold ()));
-	if (!delayUntilCcaEnd.IsZero ())
-	{
-		m_state->SwitchMaybeToCcaBusy (delayUntilCcaEnd);
+		default:
+			NS_FATAL_ERROR ("Invalid WifiPhy state.");
+			break;
 	}
 }
 
-void MatlabWifiPhy::StartReceivePacket (Ptr<ns3::Packet> packet,
-		WifiTxVector txVector,
-		enum WifiPreamble preamble,
-		enum mpduType mpdutype,
-		int flag)
+void MatlabWifiPhy::StartRx (Ptr<Packet> packet, WifiTxVector txVector, MpduType mpdutype, double rxPowerW, Time rxDuration, Ptr<Event> event, MatlabPhyInfo mlPhyInfo)
 {
-	NS_LOG_FUNCTION (this << packet << txVector.GetMode () << preamble << (uint32_t)mpdutype);
+	NS_LOG_FUNCTION (this << packet << txVector << +mpdutype << rxPowerW << rxDuration);
+	if (rxPowerW > DbmToW(GetEdThreshold ())) //checked here, no need to check in the payload reception (current implementation assumes constant rx power over the packet duration)
+	{
+		AmpduTag ampduTag;
+		WifiPreamble preamble = txVector.GetPreambleType ();
+		if (preamble == WIFI_PREAMBLE_NONE && (m_mpdusNum == 0 || m_plcpSuccess == false))
+		{
+			m_plcpSuccess = false;
+			m_mpdusNum = 0;
+			NS_LOG_DEBUG ("drop packet because no PLCP preamble/header has been received");
+			NotifyRxDrop (packet);
+			MaybeCcaBusyDuration ();
+			return;
+		}
+		else if (preamble != WIFI_PREAMBLE_NONE && packet->PeekPacketTag (ampduTag) && m_mpdusNum == 0)
+		{
+			//received the first MPDU in an MPDU
+			m_mpdusNum = ampduTag.GetRemainingNbOfMpdus ();
+			m_rxMpduReferenceNumber++;
+		}
+		else if (preamble == WIFI_PREAMBLE_NONE && packet->PeekPacketTag (ampduTag) && m_mpdusNum > 0)
+		{
+			//received the other MPDUs that are part of the A-MPDU
+			if (ampduTag.GetRemainingNbOfMpdus () < (m_mpdusNum - 1))
+			{
+				NS_LOG_DEBUG ("Missing MPDU from the A-MPDU " << m_mpdusNum - ampduTag.GetRemainingNbOfMpdus ());
+				m_mpdusNum = ampduTag.GetRemainingNbOfMpdus ();
+			}
+			else
+			{
+				m_mpdusNum--;
+			}
+		}
+		else if (preamble != WIFI_PREAMBLE_NONE && packet->PeekPacketTag (ampduTag) && m_mpdusNum > 0)
+		{
+			NS_LOG_DEBUG ("New A-MPDU started while " << m_mpdusNum << " MPDUs from previous are lost");
+			m_mpdusNum = ampduTag.GetRemainingNbOfMpdus ();
+		}
+		else if (preamble != WIFI_PREAMBLE_NONE && m_mpdusNum > 0 )
+		{
+			NS_LOG_DEBUG ("Didn't receive the last MPDUs from an A-MPDU " << m_mpdusNum);
+			m_mpdusNum = 0;
+		}
+
+		NS_LOG_DEBUG ("sync to signal (power=" << rxPowerW << "W)");
+		m_state->SwitchToRx (rxDuration);
+		NS_ASSERT (m_endPlcpRxEvent.IsExpired ());
+		NotifyRxBegin (packet);
+		m_interference.NotifyRxStart ();
+
+		if (preamble != WIFI_PREAMBLE_NONE)
+		{
+			NS_ASSERT (m_endPlcpRxEvent.IsExpired ());
+			Time preambleAndHeaderDuration = CalculatePlcpPreambleAndHeaderDuration (txVector);
+			m_endPlcpRxEvent = Simulator::Schedule (preambleAndHeaderDuration, &MatlabWifiPhy::StartReceivePacket, this,
+					packet, txVector, mpdutype, event, mlPhyInfo);
+		}
+
+		NS_ASSERT (m_endRxEvent.IsExpired ());
+		m_endRxEvent = Simulator::Schedule (rxDuration, &MatlabWifiPhy::EndReceive, this,
+				packet, preamble, mpdutype, event, mlPhyInfo);
+	}
+	else
+	{
+		NS_LOG_DEBUG ("drop packet because signal power too Small (" <<
+				rxPowerW << "<" << DbmToW(GetEdThreshold ()) << ")");
+		NotifyRxDrop (packet);
+		m_plcpSuccess = false;
+		MaybeCcaBusyDuration ();
+	}
+}
+
+void MatlabWifiPhy::StartReceivePacket (Ptr<Packet> packet, WifiTxVector txVector, MpduType mpdutype, Ptr<Event> event, MatlabPhyInfo mlPhyInfo)
+{
+	NS_LOG_FUNCTION (this << packet << txVector.GetMode () << txVector.GetPreambleType () << +mpdutype);
 	NS_ASSERT (IsStateRx ());
 	NS_ASSERT (m_endPlcpRxEvent.IsExpired ());
-
 	WifiMode txMode = txVector.GetMode ();
+
+	int flag = mlPhyInfo.flag;
 
 	if (flag == 0) //plcp reception succeeded
 	{
@@ -442,106 +306,50 @@ void MatlabWifiPhy::StartReceivePacket (Ptr<ns3::Packet> packet,
 	}
 }
 
-void MatlabWifiPhy::SendPacket (Ptr<const ns3::Packet> packet, WifiTxVector txVector, WifiPreamble preamble)
-{
-	SendPacket (packet, txVector, preamble, NORMAL_MPDU); //Disabled the actual ns3 packet and sending or corrupted packet
-}
-
-void MatlabWifiPhy::SendPacket (Ptr<const ns3::Packet> packet, WifiTxVector txVector, WifiPreamble preamble, enum mpduType mpdutype)
-{
-	NS_LOG_FUNCTION (this << packet << txVector.GetMode () 
-			<< txVector.GetMode ().GetDataRate (txVector)
-			<< preamble << (uint32_t)txVector.GetTxPowerLevel () << (uint32_t)mpdutype);
-	/* Transmission can happen if:
-	 *  - we are syncing on a packet. It is the responsability of the
-	 *    MAC layer to avoid doing this but the PHY does nothing to
-	 *    prevent it.
-	 *  - we are idle
-	 */
-	NS_ASSERT (!m_state->IsStateTx () && !m_state->IsStateSwitching ());
-
-	if (m_state->IsStateSleep ())
-	{
-		NS_LOG_DEBUG ("Dropping packet because in sleep mode");
-		NotifyTxDrop (packet);
-		return;
-	}
-
-	Time txDuration = CalculateTxDuration (packet->GetSize (), txVector, preamble, GetFrequency (), mpdutype, 1);
-	NS_ASSERT (txDuration > NanoSeconds (0));
-
-	if (m_state->IsStateRx ())
-	{
-		m_endPlcpRxEvent.Cancel ();
-		m_endRxEvent.Cancel ();
-		m_interference.NotifyRxEnd ();
-	}
-	NotifyTxBegin (packet);
-	uint32_t dataRate500KbpsUnits;
-	if (txVector.GetMode ().GetModulationClass () == WIFI_MOD_CLASS_HT || txVector.GetMode ().GetModulationClass () == WIFI_MOD_CLASS_VHT)
-	{
-		dataRate500KbpsUnits = 128 + txVector.GetMode ().GetMcsValue ();
-	}
-	else
-	{
-		dataRate500KbpsUnits = txVector.GetMode ().GetDataRate (txVector.GetChannelWidth (), txVector.IsShortGuardInterval (), 1) * txVector.GetNss () / 500000;
-	}
-	if (mpdutype == MPDU_IN_AGGREGATE && preamble != WIFI_PREAMBLE_NONE)
-	{
-		//send the first MPDU in an MPDU
-		m_txMpduReferenceNumber++;
-	}
-	struct mpduInfo aMpdu;
-	aMpdu.type = mpdutype;
-	aMpdu.mpduRefNumber = m_txMpduReferenceNumber;
-	NotifyMonitorSniffTx (packet, (uint16_t)GetFrequency (), GetChannelNumber (), dataRate500KbpsUnits, preamble, txVector, aMpdu);
-	m_state->SwitchToTx (txDuration, packet, GetPowerDbm (txVector.GetTxPowerLevel ()), txVector, preamble);
-	m_channel->Send (this, packet, GetPowerDbm (txVector.GetTxPowerLevel ()), GetTxGain (), GetRxGain(), txVector, preamble, mpdutype, txDuration);
-}
-
-void MatlabWifiPhy::RegisterListener (WifiPhyListener *listener)
-{
-	m_state->RegisterListener (listener);
-}
-
-void MatlabWifiPhy::UnregisterListener (WifiPhyListener *listener)
-{
-	m_state->UnregisterListener (listener);
-}
-
-void MatlabWifiPhy::EndReceive (Ptr<ns3::Packet> packet, enum WifiPreamble preamble, enum mpduType mpdutype, Ptr<ns3::InterferenceHelper::Event> event, int flag)
+void MatlabWifiPhy::EndReceive (Ptr<Packet> packet, WifiPreamble preamble, MpduType mpdutype, Ptr<Event> event, MatlabPhyInfo mlPhyInfo)
 {
 	NS_LOG_FUNCTION (this << packet << event);
 	NS_ASSERT (IsStateRx ());
 	NS_ASSERT (event->GetEndTime () == Simulator::Now ());
-	if (flag == 0)
+	
+	int flag = mlPhyInfo.flag;
+	double snrW = mlPhyInfo.snrW;
+
+	if (flag == 0) //plcp reception succeeded
 	{
 		NotifyRxEnd (packet);
-		uint32_t dataRate500KbpsUnits;
-		if ((event->GetPayloadMode ().GetModulationClass () == WIFI_MOD_CLASS_HT) || (event->GetPayloadMode ().GetModulationClass () == WIFI_MOD_CLASS_VHT))
-		{
-			dataRate500KbpsUnits = 128 + event->GetPayloadMode ().GetMcsValue ();
-		}
-		else
-		{
-			dataRate500KbpsUnits = event->GetPayloadMode ().GetDataRate (event->GetTxVector ().GetChannelWidth (), event->GetTxVector ().IsShortGuardInterval (), 1) * event->GetTxVector ().GetNss () / 500000;
-		}
-		struct signalNoiseDbm signalNoise;
-		signalNoise.signal = RatioToDb (event->GetRxPowerW ()) + 30;
-		signalNoise.noise = RatioToDb (event->GetRxPowerW () / -10000) - GetRxNoiseFigure () + 30;
-		struct mpduInfo aMpdu;
+		SignalNoiseDbm signalNoise;
+		signalNoise.signal = WToDbm (event->GetRxPowerW ());
+		signalNoise.noise = WToDbm (event->GetRxPowerW () / snrW);
+		MpduInfo aMpdu;
 		aMpdu.type = mpdutype;
 		aMpdu.mpduRefNumber = m_rxMpduReferenceNumber;
-		NotifyMonitorSniffRx (packet, (uint16_t)GetFrequency (), GetChannelNumber (), dataRate500KbpsUnits, event->GetPreambleType (), event->GetTxVector (), aMpdu, signalNoise);
-		m_state->SwitchFromRxEndOk (packet, -10000, event->GetTxVector (), event->GetPreambleType ());
+		NotifyMonitorSniffRx (packet, GetFrequency (), event->GetTxVector (), aMpdu, signalNoise);
+		m_state->SwitchFromRxEndOk (packet, snrW, event->GetTxVector ());
 	}
 	else
 	{
+		/* failure. */
 		NotifyRxDrop (packet);
-		m_state->SwitchFromRxEndError (packet, -10000);
+		m_state->SwitchFromRxEndError (packet, snrW);
 	}
+
 	if (preamble == WIFI_PREAMBLE_NONE && mpdutype == LAST_MPDU_IN_AGGREGATE)
 	{
 		m_plcpSuccess = false;
+	}
+}
+
+void MatlabWifiPhy::MaybeCcaBusyDuration ()
+{
+	//We are here because we have received the first bit of a packet and we are
+	//not going to be able to synchronize on it
+	//In this model, CCA becomes busy when the aggregation of all signals as
+	//tracked by the InterferenceHelper class is higher than the CcaBusyThreshold
+
+	Time delayUntilCcaEnd = m_interference.GetEnergyDuration (DbmToW (GetCcaMode1Threshold ()));
+	if (!delayUntilCcaEnd.IsZero ())
+	{
+		m_state->SwitchMaybeToCcaBusy (delayUntilCcaEnd);
 	}
 }
