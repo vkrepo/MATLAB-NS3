@@ -9,7 +9,7 @@
 #
 
 current_location=$PWD
-cd $current_location/ns-allinone-3.29/ns-3.29/
+cd "$current_location/ns-allinone-3.29/ns-3.29/"
 chmod +x waf
 
 # For new GCC version, disable a compiler flag
@@ -23,8 +23,8 @@ fi
 
 ./waf clean
 ./waf build
-cd $current_location/native/mlPhy
+cd "$current_location/native/mlPhy"
 sh compile.sh
-cd $current_location/native/mexBindings
+cd "$current_location/native/mexBindings"
 make
-cd $current_location
+cd "$current_location"
